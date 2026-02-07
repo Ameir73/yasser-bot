@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
 
-# بيانات البوت الخاصة بك
+# بياناتك الصحيحة (تأكد من عدم وجود مسافات)
 api_id = 20857504
 api_hash = "679f248888b64e054817a09dae079718"
 bot_token = "7820755909:AAH6KNo2o9u_FpE6p3_Y8P3O9v87K-X4E_w"
