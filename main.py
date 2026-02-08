@@ -5,53 +5,58 @@ from flask import Flask
 from threading import Thread
 import time
 
-# 1. إعدادات بوت ياسر 
-TOKEN = "8507472664:AAFPkBX-w0nns4A8uk1cSf8tIfdyVCShW0A"
+# 1. إعدادات بوت ياسر (التوكن الجديد الأخير)
+TOKEN = "8507472664:AAEUQ5uZWTQtOXtbiBOdxnXLPKz4eFrOvXo"
 bot = telebot.TeleBot(TOKEN, threaded=False)
 server = Flask(__name__)
 
 @server.route("/")
 def webhook():
-    return "Bot is Active!", 200
+    return "Yasser Bot is Alive!", 200
 
 def run_flask():
     server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
-# 2. أمر جلب السعر (تنظيف كامل للاسم)
+# 2. أمر جلب السعر المباشر (نسخة بينانس المضمونة)
 @bot.message_handler(commands=['price'])
 def get_price(message):
     try:
+        # استلام النص وتنظيفه
         parts = message.text.split()
         if len(parts) < 2:
             bot.reply_to(message, "⚠️ اكتب اسم العملة، مثال: `/price BTC` ")
             return
             
-        # تنظيف اسم العملة من أي فراغات أو رموز
         coin = parts[1].strip().upper()
-        
-        # رابط بينانس المباشر
+        # طلب السعر من بينانس
         url = f"https://api.binance.com/api/v3/ticker/price?symbol={coin}USDT"
-        response = requests.get(url, timeout=10)
+        response = requests.get(url, timeout=15)
         
         if response.status_code == 200:
             data = response.json()
             price = float(data['price'])
-            # عرض السعر بدون نجوم في البداية لضمان العمل
-            bot.reply_to(message, f"💰 سعر {coin} الآن هو:\n${price:,.4f}")
+            # عرض السعر بشكل نظيف جداً
+            bot.reply_to(message, f"💰 سعر عملة {coin} الآن:\n${price:,.4f}")
         else:
-            bot.reply_to(message, f"❌ عملة {coin} غير موجودة في بينانس.\nتأكد من كتابة الرمز فقط (مثل BTC).")
-    except Exception:
-        bot.reply_to(message, "⚠️ السيرفر مشغول، حاول ثانية.")
+            bot.reply_to(message, f"❌ عملة {coin} غير موجودة في بينانس حالياً.")
+    except Exception as e:
+        bot.reply_to(message, "⚠️ السيرفر مشغول قليلاً، حاول مرة أخرى.")
 
 # 3. أمر البداية
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "🚀 بوت ياسر متصل!\n\nجرب الآن: `/price BTC` ")
+    bot.reply_to(message, "🚀 **تم تفعيل البوت بالتوكن الجديد!**\n\n🎯 الهدف: الزواج من العنود 💍\n📉 جرب الآن: `/price BTC` ")
 
+# 4. التشغيل مع فك التعليق
 if __name__ == "__main__":
+    # تشغيل خادم الويب
     Thread(target=run_flask).start()
+    
+    # تنظيف أي جلسة قديمة للتوكن الجديد
     bot.remove_webhook()
-    time.sleep(1)
-    print("البوت انطلق!")
+    time.sleep(2)
+    
+    print("--- البوت انطلق بالتوكن الثالث بنجاح ---")
+    # تشغيل البوت مع مسح أي رسائل سابقة
     bot.infinity_polling(skip_pending=True)
-            
+    
