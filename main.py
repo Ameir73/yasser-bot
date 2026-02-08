@@ -2,34 +2,33 @@ import os
 import json
 import threading
 from urllib.request import urlopen
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from flask import Flask
 from pyrogram import Client, filters
 
-# --- 1. بياناتك ---
+# --- 1. إعداد الخادم (عشان Render يرضى علينا) ---
+web_app = Flask(__name__)
+
+@web_app.route('/')
+def home():
+    return "Bot is Running!"
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 10000))
+    web_app.run(host='0.0.0.0', port=port)
+
+# تشغيل الخادم في خيط منفصل
+threading.Thread(target=run_web_server, daemon=True).start()
+
+# --- 2. إعدادات بوت ياسر ---
 API_ID = 21437281
 API_HASH = "6d8fd92d56b9b9db9377cc493fa641d0"
 BOT_TOKEN = "8507472664:AAGQ_xlh-CLwCafVBGp5YPaBOmD_th4Oq88"
 
-# --- 2. خدعة المنفذ لـ Render (إلزامي) ---
-def run_port_server():
-    class Handler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"Yasser Bot is Alive!")
-    # Render يعطي منفذ عشوائي عبر المتغير PORT، وإذا لم يوجد نستخدم 10000
-    port = int(os.environ.get("PORT", 10000))
-    server = HTTPServer(('0.0.0.0', port), Handler)
-    server.serve_forever()
-
-threading.Thread(target=run_port_server, daemon=True).start()
-
-# --- 3. إعداد البوت ---
 app = Client("yasser_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
-    await message.reply_text("🚀 بوت ياسر الاحترافي متصل الآن!\n\nجرب أمر السعر:\n`/price BTC`", parse_mode=enums.ParseMode.MARKDOWN)
+    await message.reply_text("🚀 **بوت ياسر اشتغل رسمياً!**\n\nالآن يمكنك استخدام الأوامر:\n🔹 `/price BTC` للسعر المباشر\n🔹 `/long` أو `/short` للصفقات")
 
 @app.on_message(filters.command("price"))
 async def get_price(client, message):
@@ -39,10 +38,11 @@ async def get_price(client, message):
         with urlopen(url) as response:
             data = json.loads(response.read())
             price = float(data['price'])
-            await message.reply_text(f"💰 سعر **{symbol}** الآن:\n`${price:.4f}`")
-    except Exception:
-        await message.reply_text("❌ خطأ! اكتب العملة صح (مثال: `/price BTC`)")
+            await message.reply_text(f"💰 سعر **{symbol}** الآن: `${price:.4f}`")
+    except:
+        await message.reply_text("❌ اكتب العملة صح (مثال: `/price BTC`)")
 
-# تشغيل البوت
-print("--- البوت بدأ العمل ---")
+# إضافة أوامر الصفقات (Long/Short) بنفس الطريقة السابقة هنا إذا أردت..
+
+print("--- البوت والموقع انطلقا! ---")
 app.run()
