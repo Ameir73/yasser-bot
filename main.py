@@ -1,50 +1,42 @@
 import os
-import asyncio
-from aiohttp import web
-from pyrogram import Client, filters
+import telebot
 import requests
+from flask import Flask
+from threading import Thread
 
-# بياناتك
-API_ID = 21437281
-API_HASH = "6d8fd92d56b9b9db9377cc493fa641d0"
-BOT_TOKEN = "8507472664:AAGQ_xlh-CLwCafVBGp5YPaBOmD_th4Oq88"
+# 1. إعدادات البوت
+TOKEN = "8507472664:AAGQ_xlh-CLwCafVBGp5YPaBOmD_th4Oq88"
+bot = telebot.TeleBot(TOKEN)
+server = Flask(__name__)
 
-# 1. خادم ويب صغير جداً لإرضاء Render
-async def handle(request):
-    return web.Response(text="Bot is Live!")
+# 2. نظام النبض لإرضاء Render
+@server.route("/")
+def webhook():
+    return "Bot is Alive!", 200
 
-async def start_web_server():
-    app = web.Application()
-    app.router.add_get('/', handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    port = int(os.environ.get("PORT", 10000))
-    site = web.TCPSite(runner, '0.0.0.0', port)
-    await site.start()
+def run_flask():
+    server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
-# 2. تشغيل البوت
-app = Client("yasser_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# 3. الأوامر (سعر العملة)
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.reply_to(message, "🚀 أهلاً يا ياسر! البوت شغال الآن بنظام Telebot المستقر.\n\nجرب أرسل: `/price BTC`", parse_mode="Markdown")
 
-@app.on_message(filters.command("start"))
-async def start(client, message):
-    await message.reply_text("🚀 أهلاً ياسر! البوت شغال 100% الآن.\nجرب `/price BTC` فوراً!")
-
-@app.on_message(filters.command("price"))
-async def get_price(client, message):
+@bot.message_handler(commands=['price'])
+def get_price(message):
     try:
-        symbol = message.command[1].upper()
-        res = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}USDT").json()
+        coin = message.text.split()[1].upper()
+        res = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={coin}USDT").json()
         price = float(res['price'])
-        await message.reply_text(f"💰 سعر **{symbol}** الآن: `${price:.2f}`")
+        bot.reply_to(message, f"💰 سعر **{coin}** الآن: `${price:.4f}`", parse_mode="Markdown")
     except:
-        await message.reply_text("❌ اكتب العملة صح")
+        bot.reply_to(message, "❌ اكتب العملة صح، مثال: `/price BTC`")
 
-async def main():
-    await start_web_server()
-    await app.start()
-    print("--- البوت انطلق بنجاح ---")
-    await asyncio.Event().wait()
-
+# 4. تشغيل كل شيء
 if __name__ == "__main__":
-    asyncio.run(main())
+    # تشغيل Flask في الخلفية
+    Thread(target=run_flask).start()
+    print("--- البوت انطلق بنجاح يا ياسر ---")
+    # تشغيل البوت
+    bot.infinity_polling()
     
