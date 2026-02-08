@@ -12,45 +12,39 @@ server = Flask(__name__)
 
 @server.route("/")
 def webhook():
-    return "Yasser Bot is 100% Active!", 200
+    return "Yasser Bot is Active!", 200
 
 def run_flask():
     server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
 
-# 2. الأوامر المحسنة
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.reply_to(message, "✅ **أهلاً ياسر! البوت جاهز تماماً.**\nأرسل الآن: `/price BTC` جربها!")
-
+# 2. أمر جلب السعر المطور
 @bot.message_handler(commands=['price'])
 def get_price(message):
     try:
-        # قراءة اسم العملة فقط وتجاهل الأمر
-        text = message.text.strip().split()
-        if len(text) < 2:
-            bot.reply_to(message, "❌ اكتب اسم العملة، مثال: `/price FET` ")
+        # تقسيم الرسالة لأخذ الكلمة الثانية فقط (اسم العملة)
+        parts = message.text.split()
+        if len(parts) < 2:
+            bot.reply_to(message, "⚠️ يرجى كتابة اسم العملة بعد الأمر.\nمثال: `/price BTC`", parse_mode="Markdown")
             return
-            
-        coin = text[1].upper()
-        # جلب السعر من بينانس
+        
+        coin = parts[1].upper() # تحويل الحروف لكبيرة
         url = f"https://api.binance.com/api/v3/ticker/price?symbol={coin}USDT"
         res = requests.get(url).json()
         
         if 'price' in res:
             price = float(res['price'])
-            # عرض السعر بشكل جميل
-            bot.reply_to(message, f"💰 سعر **{coin}** الآن:\n`${price:.4f}`")
+            bot.reply_to(message, f"💰 سعر عملة **{coin}** الآن:\n`${price:.4f}`", parse_mode="Markdown")
         else:
-            bot.reply_to(message, f"❌ عملة {coin} غير موجودة في بينانس.")
+            bot.reply_to(message, f"❌ عملة **{coin}** غير مدعومة أو غير موجودة في بينانس.", parse_mode="Markdown")
     except Exception as e:
-        bot.reply_to(message, "⚠️ حاول مرة أخرى.")
+        bot.reply_to(message, "⚠️ حدث خطأ، تأكد من كتابة اسم العملة بشكل صحيح.")
 
-# 3. التشغيل مع تفادي التعارض
+# 3. التشغيل مع تنظيف الاتصالات القديمة
 if __name__ == "__main__":
     Thread(target=run_flask).start()
-    print("--- جارِ تشغيل البوت بنجاح ---")
-    # حذف الـ Webhook القديم لفك التعليق
+    # حذف الـ Webhook القديم فوراً لحل مشكلة Conflict 409
     bot.remove_webhook()
     time.sleep(1)
+    print("--- البوت انطلق بنجاح يا ياسر ---")
     bot.infinity_polling(timeout=10, long_polling_timeout=5)
-    
+        
