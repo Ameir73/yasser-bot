@@ -4,39 +4,47 @@ import requests
 from flask import Flask
 from threading import Thread
 
-# 1. إعدادات البوت
+# 1. إعدادات بوت ياسر
 TOKEN = "8507472664:AAGQ_xlh-CLwCafVBGp5YPaBOmD_th4Oq88"
 bot = telebot.TeleBot(TOKEN)
 server = Flask(__name__)
 
-# 2. نظام النبض لإرضاء Render
 @server.route("/")
 def webhook():
-    return "Bot is Alive!", 200
+    return "Yasser Bot is Running!", 200
 
 def run_flask():
-    server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    port = int(os.environ.get("PORT", 10000))
+    server.run(host="0.0.0.0", port=port)
 
-# 3. الأوامر (سعر العملة)
+# 2. الأوامر
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.reply_to(message, "🚀 أهلاً يا ياسر! البوت شغال الآن بنظام Telebot المستقر.\n\nجرب أرسل: `/price BTC`", parse_mode="Markdown")
+    bot.reply_to(message, "✅ **بوت ياسر جاهز للعمل!**\n\nأرسل اسم العملة بهذا الشكل:\n`/price BTC`", parse_mode="Markdown")
 
 @bot.message_handler(commands=['price'])
 def get_price(message):
     try:
-        coin = message.text.split()[1].upper()
-        res = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={coin}USDT").json()
-        price = float(res['price'])
-        bot.reply_to(message, f"💰 سعر **{coin}** الآن: `${price:.4f}`", parse_mode="Markdown")
-    except:
-        bot.reply_to(message, "❌ اكتب العملة صح، مثال: `/price BTC`")
+        # تحسين قراءة النص لتجنب الأخطاء
+        text_parts = message.text.split()
+        if len(text_parts) < 2:
+            bot.reply_to(message, "❌ يرجى كتابة اسم العملة.\nمثال: `/price FET`", parse_mode="Markdown")
+            return
+            
+        coin = text_parts[1].upper()
+        url = f"https://api.binance.com/api/v3/ticker/price?symbol={coin}USDT"
+        res = requests.get(url).json()
+        
+        if 'price' in res:
+            price = float(res['price'])
+            bot.reply_to(message, f"💰 سعر **{coin}** الآن:\n`${price:.4f}`", parse_mode="Markdown")
+        else:
+            bot.reply_to(message, f"❌ لم أجد عملة باسم {coin} في بينانس.")
+    except Exception as e:
+        bot.reply_to(message, "⚠️ حدث خطأ أثناء جلب السعر.")
 
-# 4. تشغيل كل شيء
+# 3. التشغيل
 if __name__ == "__main__":
-    # تشغيل Flask في الخلفية
     Thread(target=run_flask).start()
-    print("--- البوت انطلق بنجاح يا ياسر ---")
-    # تشغيل البوت
+    print("Bot is starting...")
     bot.infinity_polling()
-    
