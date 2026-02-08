@@ -5,27 +5,25 @@ from threading import Thread
 from flask import Flask
 import telebot
 from telebot import types
-import pymongo # التأكد من استيراد المكتبة لحل مشكلة الصورة السابقة
+import pymongo
 
-# --- ⚙️ الإعدادات المحدثة ---
+# --- ⚙️ الإعدادات والربط ---
 TOKEN = "7948017595:AAFw-ILthgp8F9IopGIqCXlwsqXBRDy4UPY"
-# الرابط المباشر لضمان استقرار الاتصال في Render
 MONGO_URI = "mongodb+srv://yasser_user:YasserPass2026@cluster0.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
 STORAGE_GROUP_ID = -1003702033956
 LOGS_GROUP_ID = -1003712634065
 OWNER_ID = 7988144062 
 
-# --- 📦 الاتصال بقاعدة البيانات ---
+# الاتصال بالقاعدة
 try:
     client = pymongo.MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
     db = client['YasserQuiz']
     q_collection = db['questions']
-    admin_collection = db['admins']
     client.admin.command('ping')
-    print("✅ تم الاتصال بالسحابة بالتوكن الجديد!")
+    print("✅ المتصل مستعد والتوكن مفعل!")
 except Exception as e:
-    print(f"❌ خطأ في الاتصال: {e}")
+    print(f"❌ خطأ قاعدة البيانات: {e}")
 
 bot = telebot.TeleBot(TOKEN)
 server = Flask(__name__)
@@ -60,7 +58,7 @@ def start_cmd(message):
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("📂 أقسامك الخاصة", callback_data="view_secs"))
     markup.add(types.InlineKeyboardButton("➕ إضافة قسم جديد", callback_data="add_new_sec"))
-    bot.send_message(message.chat.id, "💎 لوحة تحكم ياسر @Ya_79k\n(التوكن الجديد مفعل ✅)", reply_markup=markup)
+    bot.send_message(message.chat.id, "💎 لوحة تحكم ياسر @Ya_79k\n(تم إصلاح الكود بالكامل ✅)", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: True)
 def handle_queries(call):
@@ -68,7 +66,8 @@ def handle_queries(call):
     if call.data == "view_secs":
         secs = q_collection.distinct("section")
         markup = types.InlineKeyboardMarkup()
-        for s in secs: markup.add(types.InlineKeyboardButton(s, callback_data=f"open_{s}"))
+        for s in secs:
+            markup.add(types.InlineKeyboardButton(s, callback_data=f"open_{s}"))
         markup.add(types.InlineKeyboardButton("🔙 رجوع", callback_data="back_home"))
         bot.edit_message_text("📂 الأقسام المتوفرة:", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
@@ -91,7 +90,9 @@ def step_get_q(message):
 
 def step_get_correct_ans(message):
     uid = message.from_user.id
+    if uid not in user_state: return
     user_state[uid]['opts'].append(message.text)
+    
     markup = types.InlineKeyboardMarkup()
     markup.add(types.InlineKeyboardButton("➕ إضافة خيار خاطئ", callback_data="add_extra"))
     markup.add(types.InlineKeyboardButton("⏱️ ضبط الوقت والإنهاء", callback_data="set_time"))
@@ -110,5 +111,29 @@ def handle_steps(call):
         bot.edit_message_text("⏱️ اختر وقت الإجابة لهذا السؤال:", call.message.chat.id, call.message.message_id, reply_markup=markup)
 
 def step_get_wrong_ans(message):
-    user_state[message.from_user.
+    user_state[message.from_user.id]['opts'].append(message.text)
+    bot.send_message(message.chat.id, f"✅ تمت إضافة الخيار: {message.text}")
+    step_get_correct_ans(message)
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith("final_"))
+def save_everything(call):
+    _, sec, t = call.data.split("_")
+    data = user_state.get(call.from_user.id)
+    if data:
+        q_doc = {"section": sec, "q": data['q'], "a": data['opts'][0], "options": data['opts'], "t": int(t)}
+        q_collection.insert_one(q_doc)
+        bot.answer_callback_query(call.id, "✅ تم الحفظ بنجاح!")
+        text, markup = get_section_markup(sec)
+        bot.send_message(call.message.chat.id, text, reply_markup=markup, parse_mode="Markdown")
+
+# --- 🌐 السيرفر ---
+@server.route("/")
+def home(): return "Yasser Bot is Active", 200
+
+def run():
+    server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+
+if __name__ == "__main__":
+    Thread(target=run).start()
+    bot.infinity_polling(skip_pending=True)
     
