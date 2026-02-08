@@ -1,4 +1,5 @@
 from pyrogram import Client, filters
+import requests
 
 # بياناتك المحفوظة
 api_id = 21437281
@@ -7,52 +8,66 @@ bot_token = "8507472664:AAGQ_xlh-CLwCafVBGp5YPaBOmD_th4Oq88"
 
 app = Client("yasser_pro_bot", api_id=api_id, api_hash=api_hash, bot_token=bot_token)
 
+# 1. أمر البداية والمعلومات
 @app.on_message(filters.command("start"))
 async def start(client, message):
-    # لستة معلومات جميلة عن صاحب البوت
     info_text = (
-        "👋 **أهلاً بك في بوت الصفقات الذكي!**\n\n"
-        "✨ **معلومات حول المطور:**\n"
-        "👤 **الاسم:** ياسر\n"
-        "🎯 **الهدف:** تحقيق الأهداف المالية خلال عام\n"
-        "🛡️ **الاستراتيجية:** قنص الارتدادات وانفجار السيولة\n"
-        "💻 **المطور على GitHub:** [Ameir73](https://github.com/Ameir73)\n\n"
-        "🚀 **كيفية الاستخدام:**\n"
-        "لتحليل صفقة ونشرها، أرسل الأمر التالي:\n"
-        "`/trade [العملة] [السعر]`\n\n"
-        "مثال: `/trade FET 0.2855`"
+        "👋 **أهلاً بك في بوت التداول الاحترافي!**\n\n"
+        "👤 **المطور:** ياسر\n"
+        "🛡️ **الاستراتيجية:** انفجار السيولة وقنص الارتدادات\n\n"
+        "🚀 **الأوامر المتاحة:**\n"
+        "🔹 `/price [العملة]` - لسعر العملة المباشر\n"
+        "🔹 `/long [العملة] [السعر]` - توصية شراء\n"
+        "🔹 `/short [العملة] [السعر]` - توصية بيع"
     )
     await message.reply_text(info_text, disable_web_page_preview=True)
 
-@app.on_message(filters.command("trade"))
-async def trade_logic(client, message):
+# 2. أمر جلب السعر المباشر
+@app.on_message(filters.command("price"))
+async def get_price(client, message):
     try:
-        args = message.command
-        coin = args[1].upper()
-        entry_price = float(args[2])
-        
-        # حساب الأهداف تلقائياً
-        tp1 = entry_price * 1.02
-        tp2 = entry_price * 1.05
-        tp3 = entry_price * 1.08
-        sl = entry_price * 0.95 
-        
-        template = (
-            f"🔥 فرصة انفجار سعري: #{coin}USDT 🚀\n\n"
-            f"انطلاقة جديدة لعملة {coin} الآن! 💪\n\n"
-            f"📐 خطة الهجوم:\n"
-            f"🎯 منطقة الدخول: {entry_price:.4f}\n"
-            f"🛡️ تأمين الصفقة (DCA): {entry_price * 0.97:.4f}\n"
-            f"🚫 وقف الخسارة (SL): {sl:.4f}\n\n"
-            f"💰 محطات جني الأرباح:\n"
-            f"1️⃣ الهدف الأول: {tp1:.4f} ⚡\n"
-            f"2️⃣ الهدف الثاني: {tp2:.4f} 🚀\n"
-            f"3️⃣ الهدف الثالث: {tp3:.4f} 🚀🚀\n\n"
-            f"القرار: دخول قوي (Long) بناءً على استراتيجية 'انفجار السيولة'."
-        )
-        await message.reply_text(template)
-    except Exception as e:
-        await message.reply_text("يرجى كتابة الأمر بشكل صحيح، مثال:\n/trade FET 0.2855")
+        coin = message.command[1].upper()
+        url = f"https://api.binance.com/api/v3/ticker/price?symbol={coin}USDT"
+        data = requests.get(url).json()
+        price = data['price']
+        await message.reply_text(f"💰 سعر عملة **{coin}** الآن هو: `${float(price):.4f}`")
+    except:
+        await message.reply_text("❌ تأكد من كتابة اسم العملة بشكل صحيح (مثال: `/price BTC`)")
 
-print("البوت يعمل مع لستة المعلومات...")
+# 3. أمر صفقات الشراء (Long)
+@app.on_message(filters.command("long"))
+async def long_trade(client, message):
+    try:
+        coin = message.command[1].upper()
+        entry = float(message.command[2])
+        msg = (
+            f"🔥 فرصة انفجار سعري: #{coin}USDT 🚀\n\n"
+            f"🎯 منطقة الدخول: {entry:.4f}\n"
+            f"💰 الأهداف: {entry*1.02:.4f} | {entry*1.05:.4f} | {entry*1.08:.4f}\n"
+            f"🚫 وقف الخسارة: {entry*0.95:.4f}\n\n"
+            f"القرار: دخول قوي (Long) 📈"
+        )
+        await message.reply_text(msg)
+    except:
+        await message.reply_text("مثال: `/long FET 0.2855`")
+
+# 4. أمر صفقات البيع (Short)
+@app.on_message(filters.command("short"))
+async def short_trade(client, message):
+    try:
+        coin = message.command[1].upper()
+        entry = float(message.command[2])
+        msg = (
+            f"📉 فرصة هبوط (Short): #{coin}USDT\n\n"
+            f"🎯 منطقة الدخول: {entry:.4f}\n"
+            f"💰 الأهداف: {entry*0.98:.4f} | {entry*0.95:.4f} | {entry*0.92:.4f}\n"
+            f"🚫 وقف الخسارة: {entry*1.05:.4f}\n\n"
+            f"القرار: بيع (Short) 📉"
+        )
+        await message.reply_text(msg)
+    except:
+        await message.reply_text("مثال: `/short BTC 50000`")
+
+print("البوت الخارق يعمل...")
 app.run()
+        
