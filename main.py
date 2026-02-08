@@ -1,48 +1,50 @@
 import os
-import json
-import threading
-from urllib.request import urlopen
-from flask import Flask
+import asyncio
+from aiohttp import web
 from pyrogram import Client, filters
+import requests
 
-# --- 1. إعداد الخادم (عشان Render يرضى علينا) ---
-web_app = Flask(__name__)
-
-@web_app.route('/')
-def home():
-    return "Bot is Running!"
-
-def run_web_server():
-    port = int(os.environ.get("PORT", 10000))
-    web_app.run(host='0.0.0.0', port=port)
-
-# تشغيل الخادم في خيط منفصل
-threading.Thread(target=run_web_server, daemon=True).start()
-
-# --- 2. إعدادات بوت ياسر ---
+# بياناتك
 API_ID = 21437281
 API_HASH = "6d8fd92d56b9b9db9377cc493fa641d0"
 BOT_TOKEN = "8507472664:AAGQ_xlh-CLwCafVBGp5YPaBOmD_th4Oq88"
 
+# 1. خادم ويب صغير جداً لإرضاء Render
+async def handle(request):
+    return web.Response(text="Bot is Live!")
+
+async def start_web_server():
+    app = web.Application()
+    app.router.add_get('/', handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, '0.0.0.0', port)
+    await site.start()
+
+# 2. تشغيل البوت
 app = Client("yasser_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 @app.on_message(filters.command("start"))
 async def start(client, message):
-    await message.reply_text("🚀 **بوت ياسر اشتغل رسمياً!**\n\nالآن يمكنك استخدام الأوامر:\n🔹 `/price BTC` للسعر المباشر\n🔹 `/long` أو `/short` للصفقات")
+    await message.reply_text("🚀 أهلاً ياسر! البوت شغال 100% الآن.\nجرب `/price BTC` فوراً!")
 
 @app.on_message(filters.command("price"))
 async def get_price(client, message):
     try:
         symbol = message.command[1].upper()
-        url = f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}USDT"
-        with urlopen(url) as response:
-            data = json.loads(response.read())
-            price = float(data['price'])
-            await message.reply_text(f"💰 سعر **{symbol}** الآن: `${price:.4f}`")
+        res = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={symbol}USDT").json()
+        price = float(res['price'])
+        await message.reply_text(f"💰 سعر **{symbol}** الآن: `${price:.2f}`")
     except:
-        await message.reply_text("❌ اكتب العملة صح (مثال: `/price BTC`)")
+        await message.reply_text("❌ اكتب العملة صح")
 
-# إضافة أوامر الصفقات (Long/Short) بنفس الطريقة السابقة هنا إذا أردت..
+async def main():
+    await start_web_server()
+    await app.start()
+    print("--- البوت انطلق بنجاح ---")
+    await asyncio.Event().wait()
 
-print("--- البوت والموقع انطلقا! ---")
-app.run()
+if __name__ == "__main__":
+    asyncio.run(main())
+    
