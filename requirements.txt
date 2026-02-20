@@ -1,4 +1,4 @@
+asyncio
 aiogram==2.25.1
 httpx==0.27.0
-asyncio
-
+aiohttp==3.9.5
