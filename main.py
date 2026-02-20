@@ -1,80 +1,70 @@
-import os
-import telebot
-from telebot import types
-import pymongo
-from flask import Flask
-from threading import Thread
-from datetime import datetime
+import logging
+import asyncio
+import httpx
+from aiogram import Bot, Dispatcher, types, executor
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
 
-# --- الإعدادات ---
-TOKEN = "7948017595:AAFw-ILthgp8F9IopGIqCXlwsqXBRDy4UPY"
-MONGO_URI = "mongodb+srv://yasser_user:YasserPass2026@cluster0.mongodb.net/?retryWrites=true&w=majority"
-OWNER_ID = 7988144062 
+# إعداد السجلات
+logging.basicConfig(level=logging.INFO)
 
-# --- الاتصال بالقاعدة ---
-client = pymongo.MongoClient(MONGO_URI, tlsAllowInvalidCertificates=True)
-db = client['YasserQuiz']
-q_collection = db['questions']
+# --- [ البيانات الأساسية ] ---
+API_TOKEN = '8507472664:AAEUQ5uZWTQtOXtbiBOdxnXLPKz4eFrOvXo'
+GROQ_API_KEY = "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"
+ADMIN_ID = 7988144062
 
-bot = telebot.TeleBot(TOKEN)
-server = Flask(__name__)
-user_data = {}
+bot = Bot(token=API_TOKEN, parse_mode="HTML")
+dp = Dispatcher(bot, storage=MemoryStorage())
 
-# --- واجهة لوحة التحكم ---
-@bot.message_handler(commands=['start', 'admin'])
-def admin_start(message):
-    if message.from_user.id != OWNER_ID: return
-    markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📂 الأقسام", callback_data="list_secs"))
-    markup.add(types.InlineKeyboardButton("➕ إضافة قسم", callback_data="new_sec"))
-    bot.send_message(message.chat.id, "💎 **لوحة تحكم ياسر**\nتم إصلاح الكود بالكامل، النظام جاهز.", reply_markup=markup)
-
-@bot.callback_query_handler(func=lambda call: True)
-def callback_hand(call):
-    uid = call.from_user.id
-    if call.data == "list_secs":
-        secs = q_collection.distinct("section")
-        markup = types.InlineKeyboardMarkup()
-        for s in secs:
-            markup.add(types.InlineKeyboardButton(f"📂 {s}", callback_data=f"manage_{s}"))
-        bot.edit_message_text("اختر القسم:", call.message.chat.id, call.message.message_id, reply_markup=markup)
-
-    elif call.data.startswith("manage_"):
-        sec = call.data.split("_")[1]
-        count = q_collection.count_documents({"section": sec})
-        text = f"📌 قسم: {sec}\n🔢 الأسئلة: {count}\n📅 {datetime.now().strftime('%d/%m/%Y')}"
-        markup = types.InlineKeyboardMarkup()
-        markup.add(types.InlineKeyboardButton("➕ إضافة سؤال", callback_data=f"addq_{sec}"))
-        markup.add(types.InlineKeyboardButton("🔙 رجوع", callback_data="list_secs"))
-        bot.edit_message_text(text, call.message.chat.id, call.message.message_id, reply_markup=markup)
-
-    elif call.data.startswith("addq_"):
-        sec = call.data.split("_")[1]
-        user_data[uid] = {"sec": sec}
-        msg = bot.send_message(call.message.chat.id, "❓ أرسل السؤال:")
-        bot.register_next_step_handler(msg, get_q)
-
-def get_q(message):
-    user_data[message.from_user.id]["q"] = message.text
-    msg = bot.send_message(message.chat.id, "✅ أرسل الإجابة الصحيحة:")
-    bot.register_next_step_handler(msg, get_a)
-
-def get_a(message):
-    data = user_data[message.from_user.id]
-    q_collection.insert_one({
-        "section": data['sec'],
-        "q": data['q'],
-        "a": message.text,
-        "t": 30
-    })
-    bot.send_message(message.chat.id, "✅ تم حفظ السؤال بنجاح!")
-    admin_start(message)
-
-# --- سيرفر التشغيل ---
-@server.route('/')
-def index(): return "Bot is Running", 200
-
-if __name__ == "__main__":
-    Thread(target=lambda: server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))).start()
-    bot.infinity_polling()
+async def get_ai_description(word):
+    url = "https://api.groq.com/openai/v1/chat/completions"
+    headers = {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json"
+    }
     
+    # طلب وصف ذكي جداً ومختصر
+    payload = {
+        "model": "llama-3.3-70b-versatile",
+        "messages": [
+            {
+                "role": "user", 
+                "content": f"أعطني وصفاً غامضاً وذكياً جداً لـ ({word}) دون ذكر اسمها أو أي حرف منها. اجعل الوصف يبدو كلغز شعري قصير جداً بالعربي."
+            }
+        ],
+        "temperature": 0.5 # تقليل العشوائية ليكون الوصف دقيقاً
+    }
+
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, headers=headers, json=payload, timeout=10.0)
+            if response.status_code == 200:
+                res = response.json()
+                return res['choices'][0]['message']['content'].strip()
+            return f"❌ خطأ API: {response.status_code}"
+    except Exception as e:
+        return f"🛠️ خطأ تقني: {str(e)}"
+
+@dp.message_handler(commands=['start'])
+async def start(m: types.Message):
+    await m.answer("مرحباً بك في مختبر الذكاء. أرسل لي أي كلمة الآن وسأتحداك بوصفها!")
+
+@dp.message_handler()
+async def handle_testing(m: types.Message):
+    # الاختبار لياسر فقط
+    if m.from_user.id != ADMIN_ID:
+        return
+
+    word = m.text.strip()
+    wait_msg = await m.answer(f"🔍 أحلل كلمة: <b>{word}</b>...")
+    
+    description = await get_ai_description(word)
+    
+    await wait_msg.edit_text(
+        f"📦 **الكلمة:** {word}\n"
+        f"📝 **الوصف الذكي:**\n\n{description}\n\n"
+        f"---"
+    )
+
+if __name__ == '__main__':
+    print("🚀 المختبر جاهز.. أرسل الكلمات في التليجرام يا ياسر")
+    executor.start_polling(dp, skip_updates=True)
