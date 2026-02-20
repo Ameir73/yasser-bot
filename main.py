@@ -9,7 +9,6 @@ logging.basicConfig(level=logging.INFO)
 
 # --- [ البيانات الأساسية ] ---
 API_TOKEN = '8507472664:AAEUQ5uZWTQtOXtbiBOdxnXLPKz4eFrOvXo'
-GROQ_API_KEY = "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"
 ADMIN_ID = 7988144062
 
 bot = Bot(token=API_TOKEN, parse_mode="HTML")
